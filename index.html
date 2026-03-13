@@ -19,7 +19,7 @@ h2{text-align:center;}
 display:flex;
 gap:10px;
 flex-wrap:wrap;
-margin-bottom:15px;
+margin-bottom:10px;
 }
 
 input,select{
@@ -37,9 +37,9 @@ margin-bottom:10px;
 
 .cardBtn{
 padding:8px 14px;
-border:1px solid #ccc;
 border-radius:8px;
 background:white;
+border:1px solid #ccc;
 cursor:pointer;
 }
 
@@ -48,22 +48,27 @@ background:#1f4e79;
 color:white;
 }
 
-.topBox{
-display:flex;
-gap:20px;
-flex-wrap:wrap;
-margin-bottom:15px;
-}
+.green{background:#c8f7c5}
+.yellow{background:#fff6b3}
+.red{background:#f7c5c5}
 
-.card{
+.leaderboard{
 background:white;
+border:1px solid #ccc;
 border-radius:8px;
-padding:12px;
-border:1px solid #ddd;
+margin-bottom:10px;
 }
 
-.card ol li{
+.lbHeader{
+padding:10px;
 cursor:pointer;
+font-weight:bold;
+background:#e8eef7;
+}
+
+.lbBody{
+display:none;
+padding:10px;
 }
 
 table{
@@ -89,23 +94,10 @@ background:#e8eef7;
 font-weight:bold;
 }
 
-.drilldownBox{
-background:white;
-border:1px solid #ccc;
-padding:15px;
-margin-bottom:15px;
-border-radius:8px;
-display:none;
-}
-
-.backBtn{
-padding:6px 12px;
-background:#1f4e79;
-color:white;
-border:none;
-border-radius:6px;
-cursor:pointer;
+.activeFilters{
 margin-bottom:10px;
+font-weight:bold;
+color:#444;
 }
 
 </style>
@@ -126,6 +118,8 @@ margin-bottom:10px;
 
 </div>
 
+<div class="activeFilters" id="activeFilters"></div>
+
 <b>Month</b>
 <div class="monthCards" id="monthCards"></div>
 
@@ -136,42 +130,24 @@ margin-bottom:10px;
 <div class="tlCards" id="tlCards"></div>
 
 
-<div class="drilldownBox" id="drilldownBox">
-
-<button class="backBtn" onclick="closeDrilldown()">⬅ Back to TL Ranking</button>
-
-<h3 id="drilldownTitle"></h3>
-
-<table>
-<thead id="drillHead"></thead>
-<tbody id="drillBody"></tbody>
-</table>
-
+<div class="leaderboard">
+<div class="lbHeader" onclick="toggleLB(this)">▶ Top Qty Sellers</div>
+<div class="lbBody"><ol id="topQty"></ol></div>
 </div>
 
-
-<div class="topBox">
-
-<div class="card">
-<b>Top Qty Sellers</b>
-<ol id="topQty"></ol>
+<div class="leaderboard">
+<div class="lbHeader" onclick="toggleLB(this)">▶ Top Value Sellers</div>
+<div class="lbBody"><ol id="topValue"></ol></div>
 </div>
 
-<div class="card">
-<b>Top Value Sellers</b>
-<ol id="topValue"></ol>
+<div class="leaderboard">
+<div class="lbHeader" onclick="toggleLB(this)">▶ Outlet Category Ranking</div>
+<div class="lbBody"><ol id="catBoard"></ol></div>
 </div>
 
-<div class="card">
-<b>Outlet Category Ranking</b>
-<ol id="catBoard"></ol>
-</div>
-
-<div class="card">
-<b>TL Performance (Click to Drilldown)</b>
-<ol id="tlBoard"></ol>
-</div>
-
+<div class="leaderboard">
+<div class="lbHeader" onclick="toggleLB(this)">▶ TL Ranking</div>
+<div class="lbBody"><ol id="tlBoard"></ol></div>
 </div>
 
 
@@ -214,7 +190,6 @@ render()
 
 })
 
-
 function detectMonths(row){
 
 Object.keys(row).forEach(c=>{
@@ -224,7 +199,6 @@ months.push(c.replace(" Qty",""))
 })
 
 }
-
 
 function buildFilters(){
 
@@ -244,7 +218,6 @@ document.getElementById("searchEmp").oninput=render
 
 }
 
-
 function buildCards(){
 
 buildCardGroup("monthCards",["All",...months],"month")
@@ -252,7 +225,6 @@ buildCardGroup("categoryCards",["All",...new Set(rawData.map(r=>r["Outlet Catego
 buildCardGroup("tlCards",["All",...new Set(rawData.map(r=>r["TL Name"]))],"tl")
 
 }
-
 
 function buildCardGroup(container,items,type){
 
@@ -286,7 +258,6 @@ div.appendChild(c)
 
 }
 
-
 function getFilteredData(){
 
 let search=document.getElementById("searchEmp").value.toLowerCase()
@@ -308,14 +279,26 @@ return(
 
 }
 
-
 function render(){
 
+renderActiveFilters()
 renderTable()
 renderLeaderboards()
 
 }
 
+function renderActiveFilters(){
+
+let txt=[]
+
+if(activeMonth!="All") txt.push(activeMonth)
+if(activeCategory!="All") txt.push("Category "+activeCategory)
+if(activeTL!="All") txt.push("TL "+activeTL)
+
+document.getElementById("activeFilters").innerText=
+txt.length?"Active Filters: "+txt.join(" • "):""
+
+}
 
 function getValue(r,m,type){
 
@@ -323,7 +306,6 @@ if(type=="qty") return Number(r[m+" Qty"]||0)
 return Number(r[m+" Value"]||0)
 
 }
-
 
 function renderTable(){
 
@@ -404,7 +386,6 @@ showMonths.forEach(m=>subtotal.innerHTML+=`<td>₹${Number(totalsVal[m]).toFixed
 
 }
 
-
 function renderLeaderboards(){
 
 let data=getFilteredData()
@@ -437,10 +418,9 @@ tl[r["TL Name"]]=(tl[r["TL Name"]]||0)+v
 buildList("topQty",qty)
 buildList("topValue",val,true)
 buildList("catBoard",cat,true)
-buildTLList(tl)
+buildList("tlBoard",tl,true)
 
 }
-
 
 function buildList(id,obj,money=false){
 
@@ -449,85 +429,21 @@ let arr=Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5)
 let el=document.getElementById(id)
 el.innerHTML=""
 
-arr.forEach(x=>{
-el.innerHTML+=`<li>${x[0]} - ${money?"₹"+Number(x[1]).toFixed(1)+" L":x[1]}</li>`
-})
+arr.forEach((x,i)=>{
 
-}
+let medal=i==0?"🥇 ":i==1?"🥈 ":i==2?"🥉 ":""
 
-
-function buildTLList(obj){
-
-let arr=Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5)
-
-let el=document.getElementById("tlBoard")
-el.innerHTML=""
-
-arr.forEach(x=>{
-
-let li=document.createElement("li")
-li.innerText=x[0]+" - ₹"+Number(x[1]).toFixed(1)+" L"
-
-li.onclick=()=>openDrilldown(x[0])
-
-el.appendChild(li)
+el.innerHTML+=`<li>${medal}${x[0]} - ${money?"₹"+Number(x[1]).toFixed(1)+" L":x[1]}</li>`
 
 })
 
 }
 
+function toggleLB(el){
 
-function openDrilldown(tl){
+let body=el.nextElementSibling
 
-let data=getFilteredData().filter(r=>r["TL Name"]==tl)
-
-document.getElementById("drilldownBox").style.display="block"
-
-document.getElementById("drilldownTitle").innerText="Employees under TL: "+tl
-
-let head=document.getElementById("drillHead")
-let body=document.getElementById("drillBody")
-
-head.innerHTML="<tr><th>Rank</th><th>Emp</th><th>Store</th><th>Outlet</th><th>Total Value</th></tr>"
-body.innerHTML=""
-
-let arr=data.map(r=>{
-
-let total=0
-
-months.forEach(m=>{
-total+=getValue(r,m,"val")
-})
-
-return{
-name:r["Emp Name"],
-store:r["Store Name"],
-outlet:r["Outlet Category"],
-val:total
-}
-
-})
-
-arr.sort((a,b)=>b.val-a.val)
-
-arr.forEach((e,i)=>{
-body.innerHTML+=`
-<tr>
-<td>${i+1}</td>
-<td>${e.name}</td>
-<td>${e.store}</td>
-<td>${e.outlet}</td>
-<td>₹${Number(e.val).toFixed(1)} L</td>
-</tr>
-`
-})
-
-}
-
-
-function closeDrilldown(){
-
-document.getElementById("drilldownBox").style.display="none"
+body.style.display=body.style.display=="block"?"none":"block"
 
 }
 
