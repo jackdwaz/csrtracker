@@ -282,6 +282,20 @@ renderTop()
 
 }
 
+function formatMoney(num){
+
+num = Number(num)
+
+if(num>=10000000)
+return "₹"+(num/10000000).toFixed(2)+" Cr"
+
+if(num>=100000)
+return "₹"+(num/100000).toFixed(2)+" L"
+
+return "₹"+num.toLocaleString()
+
+}
+
 function getValue(r,m,type){
 
 if(type=="qty") return Number(r[m+" Qty"]||0)
@@ -365,7 +379,7 @@ showMonths.forEach(m=>{
 let v=getValue(r,m,"val")
 totalsVal[m]+=v
 
-tr.innerHTML+=`<td>₹${v.toLocaleString()}</td>`
+tr.innerHTML+=`<td>${formatMoney(v)}</td>`
 
 })
 
@@ -378,7 +392,7 @@ subtotal.innerHTML+=`<td class="subtotal">${totalsQty[m]}</td>`
 })
 
 showMonths.forEach(m=>{
-subtotal.innerHTML+=`<td class="subtotal">₹${totalsVal[m].toLocaleString()}</td>`
+subtotal.innerHTML+=`<td class="subtotal">${formatMoney(totalsVal[m])}</td>`
 })
 
 }
@@ -437,7 +451,7 @@ qtyList.innerHTML+=`<li>${e.name} - ${e.qty}</li>`
 })
 
 topVal.forEach(e=>{
-valList.innerHTML+=`<li>${e.name} - ₹${e.val.toLocaleString()}</li>`
+valList.innerHTML+=`<li>${e.name} - ${formatMoney(e.val)}</li>`
 })
 
 buildStoreBoard(arr)
@@ -469,7 +483,7 @@ let board=document.getElementById("storeBoard")
 board.innerHTML=""
 
 stores.slice(0,5).forEach(s=>{
-board.innerHTML+=`<li>${s.store} - ₹${s.val.toLocaleString()}</li>`
+board.innerHTML+=`<li>${s.store} - ${formatMoney(s.val)}</li>`
 })
 
 }
