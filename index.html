@@ -142,16 +142,14 @@ render()
 
 function detectMonths(row){
 
-Object.keys(row).forEach(col=>{
+const allMonths=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
-if(col.includes("2026 Qty")){
+allMonths.forEach(m=>{
 
-let m=col.split(" ")[0]
-let test=row[m+" 2025 Qty"]
+let hasData = rawData.some(r => Number(r[m+" 2026 Qty"])>0 || Number(r[m+" 2026 Value"])>0)
 
-if(test!==undefined) months.push(m)
+if(hasData) months.push(m)
 
-}
 
 })
 
