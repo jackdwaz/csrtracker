@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Employee Sales Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f4f6fb;
+margin:10px;
+}
+
+h2{
+text-align:center;
+}
+
+.controls{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+margin-bottom:15px;
+}
+
+input,select{
+padding:8px;
+border:1px solid #ccc;
+border-radius:6px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+background:white;
+}
+
+th,td{
+padding:8px;
+border:1px solid #ddd;
+font-size:13px;
+text-align:center;
+}
+
+th{
+background:#1f4e79;
+color:white;
+}
+
+.positive{
+color:green;
+font-weight:bold;
+}
+
+.negative{
+color:red;
+font-weight:bold;
+}
+
+.leaderboard{
+background:white;
+padding:10px;
+margin-top:20px;
+}
+
+.card{
+background:white;
+padding:10px;
+margin-top:15px;
+border-radius:8px;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>Employee Sales Performance 2026</h2>
+
+<div class="controls">
+
+<select id="storeFilter">
+<option value="">All Stores</option>
+</select>
+
+<input type="text" id="searchEmp" placeholder="Search Employee">
+
+</div>
+
+<div class="card">
+<b>Total Store Performance</b>
+<div id="storeTotal"></div>
+</div>
+
+<table id="salesTable">
+
+<thead>
+<tr id="headerRow"></tr>
+</thead>
+
+<tbody></tbody>
+
+</table>
+
+<div class="leaderboard">
+
+<h3>🏆 Top Performers</h3>
+<ul id="leaderboard"></ul>
+
+</div>
+
+<div class="card">
+
+<h3>Sales Chart</h3>
+<canvas id="salesChart"></canvas>
+
+</div>
+
+<script>
+
+const sheetID="1SF8KI__r5-6pq2pFxAjpkQxr7jNDvOxn2tXhAejSqGo";
+const sheetName="Sheet1";
+
+const url=`https://opensheet.elk.sh/${sheetID}/${sheetName}`;
+
+let rawData=[];
+let months=[];
+
+fetch(url)
+.then(r=>r.json())
+.then(data=>{
+
+rawData=data;
+
+detectMonths(data[0]);
+
+buildFilters();
+
+renderTable();
+
+buildLeaderboard();
+
+buildChart();
+
+});
+
+function detectMonths(row){
+
+Object.keys(row).forEach(col=>{
+
+if(col.includes("Qty")){
+months.push(col.replace(" Qty",""));
+
+}
+
+});
+
+}
+
+function buildFilters(){
+
+let stores=[...new Set(rawData.map(r=>r["Store Name"]))];
+
+let select=document.getElementById("storeFilter");
+
+stores.forEach(s=>{
+
+let opt=document.createElement("option");
+
+opt.value=s;
+opt.textContent=s;
+
+select.appendChild(opt);
+
+});
+
+select.onchange=renderTable;
+
+document.getElementById("searchEmp").oninput=renderTable;
+
+}
+
+function renderTable(){
+
+let store=document.getElementById("storeFilter").value.toLowerCase();
+
+let search=document.getElementById("searchEmp").value.toLowerCase();
+
+let header=document.getElementById("headerRow");
+
+let tbody=document.querySelector("#salesTable tbody");
+
+header.innerHTML="";
+tbody.innerHTML="";
+
+header.innerHTML+=`
+<th>Emp ID</th>
+<th>Name</th>
+<th>Store</th>
+`;
+
+months.forEach(m=>{
+
+header.innerHTML+=`<th>${m} Qty</th>`;
+});
+
+months.forEach(m=>{
+
+header.innerHTML+=`<th>${m} Value</th>`;
+});
+
+for(let i=1;i<months.length;i++){
+
+header.innerHTML+=`<th>${months[i-1]}→${months[i]} Growth</th>`;
+
+}
+
+let filtered=rawData.filter(r=>{
+
+return(
+(!store || r["Store Name"].toLowerCase()==store) &&
+(!search || r["Emp Name"].toLowerCase().includes(search) || r["Emp ID"].includes(search))
+);
+
+});
+
+let total=0;
+
+filtered.forEach(r=>{
+
+let tr=document.createElement("tr");
+
+tr.innerHTML+=`
+<td>${r["Emp ID"]}</td>
+<td>${r["Emp Name"]}</td>
+<td>${r["Store Name"]}</td>
+`;
+
+months.forEach(m=>{
+
+tr.innerHTML+=`<td>${r[m+" Qty"]||0}</td>`;
+
+});
+
+months.forEach(m=>{
+
+let v=Number(r[m+" Value"]||0);
+total+=v;
+
+tr.innerHTML+=`<td>${v}</td>`;
+
+});
+
+for(let i=1;i<months.length;i++){
+
+let prev=r[months[i-1]+" Value"]||0;
+let cur=r[months[i]+" Value"]||0;
+
+let g=prev?((cur-prev)/prev*100):0;
+
+let arrow=g>=0?"↑":"↓";
+
+let cls=g>=0?"positive":"negative";
+
+tr.innerHTML+=`<td class="${cls}">${arrow} ${g.toFixed(1)}%</td>`;
+
+}
+
+tbody.appendChild(tr);
+
+});
+
+document.getElementById("storeTotal").innerHTML=
+"₹ "+total.toLocaleString();
+
+}
+
+function buildLeaderboard(){
+
+let arr=rawData.map(r=>{
+
+let total=0;
+
+months.forEach(m=>{
+total+=Number(r[m+" Value"]||0);
+});
+
+return{
+name:r["Emp Name"],
+id:r["Emp ID"],
+value:total
+};
+
+});
+
+arr.sort((a,b)=>b.value-a.value);
+
+let list=document.getElementById("leaderboard");
+
+arr.slice(0,5).forEach(p=>{
+
+let li=document.createElement("li");
+
+li.textContent=`${p.name} (${p.id}) - ₹${p.value.toLocaleString()}`;
+
+list.appendChild(li);
+
+});
+
+}
+
+function buildChart(){
+
+let totals={};
+
+months.forEach(m=>totals[m]=0);
+
+rawData.forEach(r=>{
+
+months.forEach(m=>{
+
+totals[m]+=Number(r[m+" Value"]||0);
+
+});
+
+});
+
+new Chart(document.getElementById("salesChart"),{
+
+type:"line",
+
+data:{
+
+labels:Object.keys(totals),
+
+datasets:[{
+
+label:"Sales Value",
+
+data:Object.values(totals),
+
+borderWidth:3
+
+}]
+
+}
+
+});
+
+}
+
+</script>
+
+</body>
+</html>
