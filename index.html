@@ -104,6 +104,10 @@ background:#e8eef7;
 font-weight:bold;
 }
 
+.green{background:#c8f7c5;}
+.yellow{background:#fff6b3;}
+.red{background:#f7c5c5;}
+
 </style>
 
 </head>
@@ -141,6 +145,11 @@ font-weight:bold;
 <div class="card">
 <b>Top Value Sellers</b>
 <ol id="topValue"></ol>
+</div>
+
+<div class="card">
+<b>Store Leaderboard</b>
+<ol id="storeBoard"></ol>
 </div>
 
 </div>
@@ -229,7 +238,6 @@ container.appendChild(all)
 months.forEach(m=>{
 
 let c=document.createElement("div")
-
 c.className="monthCard"
 c.innerText=m
 
@@ -274,10 +282,14 @@ renderTop()
 
 }
 
-function renderTable(){
+function getValue(r,m,type){
 
-let store=document.getElementById("storeFilter").value.toLowerCase()
-let search=document.getElementById("searchEmp").value.toLowerCase()
+if(type=="qty") return Number(r[m+" Qty"]||0)
+return Number(r[m+" Value"]||0)
+
+}
+
+function renderTable(){
 
 let header=document.getElementById("headerRow")
 let subtotal=document.getElementById("subtotalRow")
@@ -287,10 +299,10 @@ header.innerHTML=""
 subtotal.innerHTML=""
 tbody.innerHTML=""
 
-header.innerHTML="<th>Emp ID</th><th>Name</th><th>Store</th>"
-subtotal.innerHTML="<th></th><th></th><th>Subtotal</th>"
+header.innerHTML="<th>Rank</th><th>Emp ID</th><th>Name</th><th>Store</th>"
+subtotal.innerHTML="<th></th><th></th><th></th><th>Subtotal</th>"
 
-let showMonths = activeMonth=="All"?months:[activeMonth]
+let showMonths=activeMonth=="All"?months:[activeMonth]
 
 showMonths.forEach(m=>{
 header.innerHTML+=`<th>${m} Qty</th>`
@@ -308,37 +320,49 @@ totalsQty[m]=0
 totalsVal[m]=0
 })
 
-let filtered=rawData.filter(r=>{
+let employees=rawData.map(r=>{
 
-return(
-(!store || r["Store Name"].toLowerCase()==store) &&
-(!search || r["Emp Name"].toLowerCase().includes(search) || r["Emp ID"].toLowerCase().includes(search))
-)
+let val=0
+
+if(activeMonth=="All"){
+months.forEach(m=>val+=Number(r[m+" Value"]||0))
+}else{
+val=Number(r[activeMonth+" Value"]||0)
+}
+
+return{
+data:r,
+value:val
+}
 
 })
 
-filtered.forEach(r=>{
+employees.sort((a,b)=>b.value-a.value)
 
+employees.forEach((e,i)=>{
+
+let r=e.data
 let tr=document.createElement("tr")
 
-tr.innerHTML=`
+tr.innerHTML=`<td>${i+1}</td>
 <td>${r["Emp ID"]}</td>
 <td>${r["Emp Name"]}</td>
-<td>${r["Store Name"]}</td>
-`
+<td>${r["Store Name"]}</td>`
 
 showMonths.forEach(m=>{
 
-let q=Number(r[m+" Qty"]||0)
+let q=getValue(r,m,"qty")
 totalsQty[m]+=q
 
-tr.innerHTML+=`<td>${q}</td>`
+let cls=q>20?"green":q>10?"yellow":"red"
+
+tr.innerHTML+=`<td class="${cls}">${q}</td>`
 
 })
 
 showMonths.forEach(m=>{
 
-let v=Number(r[m+" Value"]||0)
+let v=getValue(r,m,"val")
 totalsVal[m]+=v
 
 tr.innerHTML+=`<td>₹${v.toLocaleString()}</td>`
@@ -383,6 +407,7 @@ val=Number(r[activeMonth+" Value"]||0)
 return{
 
 name:r["Emp Name"]+" ("+r["Emp ID"]+")",
+store:r["Store Name"],
 qty:qty,
 val:val
 
@@ -390,21 +415,16 @@ val:val
 
 })
 
-arr.sort((a,b)=>b.qty-a.qty)
+let qtySort=[...arr].sort((a,b)=>b.qty-a.qty)
+let valSort=[...arr].sort((a,b)=>b.val-a.val)
 
 if(performanceMode=="low"){
-arr.reverse()
+qtySort.reverse()
+valSort.reverse()
 }
 
-let topQty=arr.slice(0,5)
-
-let valSorted=[...arr].sort((a,b)=>b.val-a.val)
-
-if(performanceMode=="low"){
-valSorted.reverse()
-}
-
-let topVal=valSorted.slice(0,5)
+let topQty=qtySort.slice(0,5)
+let topVal=valSort.slice(0,5)
 
 let qtyList=document.getElementById("topQty")
 let valList=document.getElementById("topValue")
@@ -418,6 +438,38 @@ qtyList.innerHTML+=`<li>${e.name} - ${e.qty}</li>`
 
 topVal.forEach(e=>{
 valList.innerHTML+=`<li>${e.name} - ₹${e.val.toLocaleString()}</li>`
+})
+
+buildStoreBoard(arr)
+
+}
+
+function buildStoreBoard(arr){
+
+let storeTotals={}
+
+arr.forEach(e=>{
+
+if(!storeTotals[e.store]) storeTotals[e.store]=0
+storeTotals[e.store]+=e.val
+
+})
+
+let stores=Object.keys(storeTotals).map(s=>{
+
+return{store:s,val:storeTotals[s]}
+
+})
+
+stores.sort((a,b)=>b.val-a.val)
+
+if(performanceMode=="low") stores.reverse()
+
+let board=document.getElementById("storeBoard")
+board.innerHTML=""
+
+stores.slice(0,5).forEach(s=>{
+board.innerHTML+=`<li>${s.store} - ₹${s.val.toLocaleString()}</li>`
 })
 
 }
