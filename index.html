@@ -27,6 +27,26 @@ border-radius:6px;
 border:1px solid #ccc;
 }
 
+.cardRow{
+display:flex;
+flex-wrap:wrap;
+gap:8px;
+margin-bottom:10px;
+}
+
+.cardBtn{
+padding:8px 14px;
+border-radius:8px;
+background:white;
+border:1px solid #ccc;
+cursor:pointer;
+}
+
+.cardBtn.active{
+background:#1f4e79;
+color:white;
+}
+
 .leaderboard{
 background:white;
 border:1px solid #ccc;
@@ -87,14 +107,23 @@ font-weight:bold;
 
 </div>
 
+<b>Month</b>
+<div class="cardRow" id="monthCards"></div>
+
+<b>Outlet Category</b>
+<div class="cardRow" id="catCards"></div>
+
+<b>Team Leader</b>
+<div class="cardRow" id="tlCards"></div>
+
 
 <div class="leaderboard">
-<div class="lbHeader" onclick="toggleLB(this)">▶ TL Growth 2025 → 2026</div>
+<div class="lbHeader" onclick="toggleLB(this)">▶ TL Growth</div>
 <div class="lbBody"><ol id="tlGrowth"></ol></div>
 </div>
 
 <div class="leaderboard">
-<div class="lbHeader" onclick="toggleLB(this)">▶ Outlet Category Growth 2025 → 2026</div>
+<div class="lbHeader" onclick="toggleLB(this)">▶ Outlet Category Growth</div>
 <div class="lbBody"><ol id="catGrowth"></ol></div>
 </div>
 
@@ -108,7 +137,6 @@ font-weight:bold;
 <div class="lbBody"><ol id="topValue"></ol></div>
 </div>
 
-
 <table id="salesTable">
 
 <thead>
@@ -120,7 +148,6 @@ font-weight:bold;
 
 </table>
 
-
 <script>
 
 const sheetID="1SF8KI__r5-6pq2pFxAjpkQxr7jNDvOxn2tXhAejSqGo"
@@ -128,28 +155,31 @@ const url=`https://opensheet.elk.sh/${sheetID}/Sheet1`
 
 let rawData=[]
 let months=[]
+let activeMonth="All"
+let activeTL="All"
+let activeCat="All"
+
+const allMonths=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
 fetch(url)
 .then(r=>r.json())
 .then(data=>{
 
 rawData=data
-detectMonths(data[0])
+
+detectMonths()
 buildFilters()
 render()
 
 })
 
-function detectMonths(row){
-
-const allMonths=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+function detectMonths(){
 
 allMonths.forEach(m=>{
 
-let hasData = rawData.some(r => Number(r[m+" 2026 Qty"])>0 || Number(r[m+" 2026 Value"])>0)
+let hasData = rawData.some(r => Number(r[m+" 2026 Qty"])>0)
 
 if(hasData) months.push(m)
-
 
 })
 
@@ -159,17 +189,54 @@ function buildFilters(){
 
 let stores=[...new Set(rawData.map(r=>r["Store Name"]))]
 
-let select=document.getElementById("storeFilter")
-
 stores.forEach(s=>{
 let opt=document.createElement("option")
 opt.value=s
 opt.textContent=s
-select.appendChild(opt)
+document.getElementById("storeFilter").appendChild(opt)
 })
 
-select.onchange=render
+document.getElementById("storeFilter").onchange=render
 document.getElementById("searchEmp").oninput=render
+
+buildCards()
+
+}
+
+function buildCards(){
+
+buildCardGroup("monthCards",["All",...months],"month")
+buildCardGroup("catCards",["All",...new Set(rawData.map(r=>r["Outlet Category"]))],"cat")
+buildCardGroup("tlCards",["All",...new Set(rawData.map(r=>r["TL Name"]))],"tl")
+
+}
+
+function buildCardGroup(id,list,type){
+
+let container=document.getElementById(id)
+
+list.forEach((x,i)=>{
+
+let btn=document.createElement("div")
+btn.className="cardBtn"+(i==0?" active":"")
+btn.innerText=x
+
+btn.onclick=()=>{
+
+container.querySelectorAll(".cardBtn").forEach(b=>b.classList.remove("active"))
+btn.classList.add("active")
+
+if(type=="month") activeMonth=x
+if(type=="tl") activeTL=x
+if(type=="cat") activeCat=x
+
+render()
+
+}
+
+container.appendChild(btn)
+
+})
 
 }
 
@@ -181,14 +248,22 @@ let store=document.getElementById("storeFilter").value
 return rawData.filter(r=>{
 
 let name=(r["Emp Name"]||"").toLowerCase()
-let id=(r["Emp ID"]||"").toString().toLowerCase()
+let id=(r["Emp ID"]||"").toLowerCase()
 
 return(
 (name.includes(search)||id.includes(search)) &&
-(store==""||r["Store Name"]==store)
+(store==""||r["Store Name"]==store) &&
+(activeTL=="All"||r["TL Name"]==activeTL) &&
+(activeCat=="All"||r["Outlet Category"]==activeCat)
 )
 
 })
+
+}
+
+function val(r,m,y,t){
+
+return Number(r[m+" "+y+" "+t]||0)
 
 }
 
@@ -199,15 +274,11 @@ renderLeaderboards()
 
 }
 
-function val(r,m,y,type){
-
-return Number(r[m+" "+y+" "+type]||0)
-
-}
-
 function renderTable(){
 
 let data=getFilteredData()
+
+let monthsToShow=activeMonth=="All"?months:[activeMonth]
 
 let header=document.getElementById("headerRow")
 let subtotal=document.getElementById("subtotalRow")
@@ -220,27 +291,26 @@ tbody.innerHTML=""
 header.innerHTML="<th>Rank</th><th>Emp ID</th><th>Name</th><th>Store</th><th>Outlet</th><th>TL</th>"
 subtotal.innerHTML="<th></th><th></th><th></th><th></th><th></th><th>Subtotal</th>"
 
-months.forEach(m=>header.innerHTML+=`<th>${m} Qty</th>`)
-months.forEach(m=>header.innerHTML+=`<th>${m} Value</th>`)
+monthsToShow.forEach(m=>header.innerHTML+=`<th>${m} Qty</th>`)
+monthsToShow.forEach(m=>header.innerHTML+=`<th>${m} Value</th>`)
 
 let totalsQty={},totalsVal={}
 
-months.forEach(m=>{
+monthsToShow.forEach(m=>{
 totalsQty[m]=0
 totalsVal[m]=0
 })
 
 let employees=data.map(r=>{
 
-let val26=0
+let total=0
+monthsToShow.forEach(m=>total+=val(r,m,"2026","Value"))
 
-months.forEach(m=>val26+=val(r,m,"2026","Value"))
-
-return{data:r,value:val26}
+return{data:r,total}
 
 })
 
-employees.sort((a,b)=>b.value-a.value)
+employees.sort((a,b)=>b.total-a.total)
 
 employees.forEach((e,i)=>{
 
@@ -256,24 +326,28 @@ tr.innerHTML=`
 <td>${r["TL Name"]}</td>
 `
 
-months.forEach(m=>{
+monthsToShow.forEach(m=>{
+
 let q=val(r,m,"2026","Qty")
 totalsQty[m]+=q
 tr.innerHTML+=`<td>${q}</td>`
+
 })
 
-months.forEach(m=>{
+monthsToShow.forEach(m=>{
+
 let v=val(r,m,"2026","Value")
 totalsVal[m]+=v
 tr.innerHTML+=`<td>₹${v.toFixed(1)} L</td>`
+
 })
 
 tbody.appendChild(tr)
 
 })
 
-months.forEach(m=>subtotal.innerHTML+=`<td>${totalsQty[m]}</td>`)
-months.forEach(m=>subtotal.innerHTML+=`<td>₹${totalsVal[m].toFixed(1)} L</td>`)
+monthsToShow.forEach(m=>subtotal.innerHTML+=`<td>${totalsQty[m]}</td>`)
+monthsToShow.forEach(m=>subtotal.innerHTML+=`<td>₹${totalsVal[m].toFixed(1)} L</td>`)
 
 }
 
@@ -281,13 +355,15 @@ function renderLeaderboards(){
 
 let data=getFilteredData()
 
+let monthsToUse=activeMonth=="All"?months:[activeMonth]
+
 let qty={},val26={},tl={},cat={}
 
 data.forEach(r=>{
 
 let q=0,v26=0,v25=0
 
-months.forEach(m=>{
+monthsToUse.forEach(m=>{
 q+=val(r,m,"2026","Qty")
 v26+=val(r,m,"2026","Value")
 v25+=val(r,m,"2025","Value")
@@ -344,15 +420,15 @@ for(let k in obj){
 let y25=obj[k].y25
 let y26=obj[k].y26
 
-if(y25===0) continue
+if(y25==0) continue
 
 let g=((y26-y25)/y25)*100
 
-arr.push([k,g])
+arr.push([k,y25,y26,g])
 
 }
 
-arr.sort((a,b)=>b[1]-a[1])
+arr.sort((a,b)=>b[3]-a[3])
 
 let el=document.getElementById(id)
 el.innerHTML=""
@@ -361,7 +437,7 @@ arr.slice(0,5).forEach((x,i)=>{
 
 let medal=i==0?"🥇 ":i==1?"🥈 ":i==2?"🥉 ":""
 
-el.innerHTML+=`<li>${medal}${x[0]} - ${x[1].toFixed(1)}%</li>`
+el.innerHTML+=`<li>${medal}${x[0]} : ₹${x[1].toFixed(1)}L → ₹${x[2].toFixed(1)}L (${x[3].toFixed(1)}%)</li>`
 
 })
 
