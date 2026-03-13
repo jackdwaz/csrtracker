@@ -392,7 +392,7 @@ tr.innerHTML+=`<td>${q}</td>`
 showMonths.forEach(m=>{
 let v=getValue(r,m,"val")
 totalsVal[m]+=v
-tr.innerHTML+=`<td>₹${v} L</td>`
+tr.innerHTML+=`<td>₹${Number(v).toFixed(1)} L</td>`
 })
 
 tbody.appendChild(tr)
@@ -400,7 +400,7 @@ tbody.appendChild(tr)
 })
 
 showMonths.forEach(m=>subtotal.innerHTML+=`<td>${totalsQty[m]}</td>`)
-showMonths.forEach(m=>subtotal.innerHTML+=`<td>₹${totalsVal[m]} L</td>`)
+showMonths.forEach(m=>subtotal.innerHTML+=`<td>₹${Number(totalsVal[m]).toFixed(1)} L</td>`)
 
 }
 
@@ -450,7 +450,7 @@ let el=document.getElementById(id)
 el.innerHTML=""
 
 arr.forEach(x=>{
-el.innerHTML+=`<li>${x[0]} - ${money?"₹"+x[1]+" L":x[1]}</li>`
+el.innerHTML+=`<li>${x[0]} - ${money?"₹"+Number(x[1]).toFixed(1)+" L":x[1]}</li>`
 })
 
 }
@@ -466,7 +466,7 @@ el.innerHTML=""
 arr.forEach(x=>{
 
 let li=document.createElement("li")
-li.innerText=x[0]+" - ₹"+x[1]+" L"
+li.innerText=x[0]+" - ₹"+Number(x[1]).toFixed(1)+" L"
 
 li.onclick=()=>openDrilldown(x[0])
 
@@ -517,7 +517,7 @@ body.innerHTML+=`
 <td>${e.name}</td>
 <td>${e.store}</td>
 <td>${e.outlet}</td>
-<td>₹${e.val} L</td>
+<td>₹${Number(e.val).toFixed(1)} L</td>
 </tr>
 `
 })
