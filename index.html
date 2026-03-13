@@ -157,10 +157,8 @@ font-weight:bold;
 <table id="salesTable">
 
 <thead>
-
 <tr id="subtotalRow"></tr>
 <tr id="headerRow"></tr>
-
 </thead>
 
 <tbody></tbody>
@@ -240,7 +238,6 @@ months.forEach(m=>{
 let c=document.createElement("div")
 c.className="monthCard"
 c.innerText=m
-
 c.onclick=()=>selectMonth(m,c)
 
 container.appendChild(c)
@@ -275,6 +272,26 @@ renderTop()
 
 }
 
+function getFilteredData(){
+
+let search=document.getElementById("searchEmp").value.toLowerCase()
+let store=document.getElementById("storeFilter").value
+
+return rawData.filter(r=>{
+
+let name=(r["Emp Name"]||"").toLowerCase()
+let id=(r["Emp ID"]||"").toString().toLowerCase()
+let storeName=(r["Store Name"]||"")
+
+return(
+(name.includes(search) || id.includes(search)) &&
+(store=="" || storeName==store)
+)
+
+})
+
+}
+
 function render(){
 
 renderTable()
@@ -290,6 +307,8 @@ return Number(r[m+" Value"]||0)
 }
 
 function renderTable(){
+
+let data=getFilteredData()
 
 let header=document.getElementById("headerRow")
 let subtotal=document.getElementById("subtotalRow")
@@ -320,7 +339,7 @@ totalsQty[m]=0
 totalsVal[m]=0
 })
 
-let employees=rawData.map(r=>{
+let employees=data.map(r=>{
 
 let val=0
 
@@ -365,7 +384,7 @@ showMonths.forEach(m=>{
 let v=getValue(r,m,"val")
 totalsVal[m]+=v
 
-tr.innerHTML+=`<td>₹${v.toLocaleString()}</td>`
+tr.innerHTML+=`<td>₹${v} L</td>`
 
 })
 
@@ -378,14 +397,16 @@ subtotal.innerHTML+=`<td class="subtotal">${totalsQty[m]}</td>`
 })
 
 showMonths.forEach(m=>{
-subtotal.innerHTML+=`<td class="subtotal">₹${totalsVal[m].toLocaleString()}</td>`
+subtotal.innerHTML+=`<td class="subtotal">₹${totalsVal[m]} L</td>`
 })
 
 }
 
 function renderTop(){
 
-let arr=rawData.map(r=>{
+let data=getFilteredData()
+
+let arr=data.map(r=>{
 
 let qty=0
 let val=0
@@ -405,12 +426,10 @@ val=Number(r[activeMonth+" Value"]||0)
 }
 
 return{
-
 name:r["Emp Name"]+" ("+r["Emp ID"]+")",
 store:r["Store Name"],
 qty:qty,
 val:val
-
 }
 
 })
@@ -423,21 +442,18 @@ qtySort.reverse()
 valSort.reverse()
 }
 
-let topQty=qtySort.slice(0,5)
-let topVal=valSort.slice(0,5)
-
 let qtyList=document.getElementById("topQty")
 let valList=document.getElementById("topValue")
 
 qtyList.innerHTML=""
 valList.innerHTML=""
 
-topQty.forEach(e=>{
+qtySort.slice(0,5).forEach(e=>{
 qtyList.innerHTML+=`<li>${e.name} - ${e.qty}</li>`
 })
 
-topVal.forEach(e=>{
-valList.innerHTML+=`<li>${e.name} - ₹${e.val.toLocaleString()}</li>`
+valSort.slice(0,5).forEach(e=>{
+valList.innerHTML+=`<li>${e.name} - ₹${e.val} L</li>`
 })
 
 buildStoreBoard(arr)
@@ -456,9 +472,7 @@ storeTotals[e.store]+=e.val
 })
 
 let stores=Object.keys(storeTotals).map(s=>{
-
 return{store:s,val:storeTotals[s]}
-
 })
 
 stores.sort((a,b)=>b.val-a.val)
@@ -469,7 +483,7 @@ let board=document.getElementById("storeBoard")
 board.innerHTML=""
 
 stores.slice(0,5).forEach(s=>{
-board.innerHTML+=`<li>${s.store} - ₹${s.val.toLocaleString()}</li>`
+board.innerHTML+=`<li>${s.store} - ₹${s.val} L</li>`
 })
 
 }
