@@ -28,14 +28,14 @@ border-radius:6px;
 border:1px solid #ccc;
 }
 
-.monthCards{
+.monthCards,.categoryCards,.tlCards{
 display:flex;
 gap:10px;
 flex-wrap:wrap;
-margin-bottom:15px;
+margin-bottom:10px;
 }
 
-.monthCard{
+.cardBtn{
 padding:8px 14px;
 border:1px solid #ccc;
 border-radius:8px;
@@ -43,26 +43,7 @@ background:white;
 cursor:pointer;
 }
 
-.monthCard.active{
-background:#1f4e79;
-color:white;
-}
-
-.performanceToggle{
-display:flex;
-gap:10px;
-margin-bottom:10px;
-}
-
-.toggleBtn{
-padding:6px 12px;
-border-radius:6px;
-border:1px solid #ccc;
-background:white;
-cursor:pointer;
-}
-
-.toggleBtn.active{
+.cardBtn.active{
 background:#1f4e79;
 color:white;
 }
@@ -79,6 +60,10 @@ background:white;
 border-radius:8px;
 padding:12px;
 border:1px solid #ddd;
+}
+
+.card ol li{
+cursor:pointer;
 }
 
 table{
@@ -104,9 +89,24 @@ background:#e8eef7;
 font-weight:bold;
 }
 
-.green{background:#c8f7c5;}
-.yellow{background:#fff6b3;}
-.red{background:#f7c5c5;}
+.drilldownBox{
+background:white;
+border:1px solid #ccc;
+padding:15px;
+margin-bottom:15px;
+border-radius:8px;
+display:none;
+}
+
+.backBtn{
+padding:6px 12px;
+background:#1f4e79;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+margin-bottom:10px;
+}
 
 </style>
 
@@ -126,14 +126,29 @@ font-weight:bold;
 
 </div>
 
+<b>Month</b>
 <div class="monthCards" id="monthCards"></div>
 
-<div class="performanceToggle">
+<b>Outlet Category</b>
+<div class="categoryCards" id="categoryCards"></div>
 
-<div class="toggleBtn active" onclick="setPerformance('top',this)">Top Performers</div>
-<div class="toggleBtn" onclick="setPerformance('low',this)">Lowest Performers</div>
+<b>Team Leader</b>
+<div class="tlCards" id="tlCards"></div>
+
+
+<div class="drilldownBox" id="drilldownBox">
+
+<button class="backBtn" onclick="closeDrilldown()">⬅ Back to TL Ranking</button>
+
+<h3 id="drilldownTitle"></h3>
+
+<table>
+<thead id="drillHead"></thead>
+<tbody id="drillBody"></tbody>
+</table>
 
 </div>
+
 
 <div class="topBox">
 
@@ -148,11 +163,17 @@ font-weight:bold;
 </div>
 
 <div class="card">
-<b>Store Leaderboard</b>
-<ol id="storeBoard"></ol>
+<b>Outlet Category Ranking</b>
+<ol id="catBoard"></ol>
+</div>
+
+<div class="card">
+<b>TL Performance (Click to Drilldown)</b>
+<ol id="tlBoard"></ol>
 </div>
 
 </div>
+
 
 <table id="salesTable">
 
@@ -174,8 +195,10 @@ const url=`https://opensheet.elk.sh/${sheetID}/${sheetName}`
 
 let rawData=[]
 let months=[]
+
 let activeMonth="All"
-let performanceMode="top"
+let activeCategory="All"
+let activeTL="All"
 
 fetch(url)
 .then(r=>r.json())
@@ -185,11 +208,12 @@ rawData=data
 
 detectMonths(data[0])
 buildFilters()
-buildMonthCards()
+buildCards()
 
 render()
 
 })
+
 
 function detectMonths(row){
 
@@ -201,6 +225,7 @@ months.push(c.replace(" Qty",""))
 
 }
 
+
 function buildFilters(){
 
 let stores=[...new Set(rawData.map(r=>r["Store Name"]))]
@@ -208,13 +233,10 @@ let stores=[...new Set(rawData.map(r=>r["Store Name"]))]
 let select=document.getElementById("storeFilter")
 
 stores.forEach(s=>{
-
 let opt=document.createElement("option")
 opt.value=s
 opt.textContent=s
-
 select.appendChild(opt)
-
 })
 
 select.onchange=render
@@ -222,55 +244,48 @@ document.getElementById("searchEmp").oninput=render
 
 }
 
-function buildMonthCards(){
 
-let container=document.getElementById("monthCards")
+function buildCards(){
 
-let all=document.createElement("div")
-all.className="monthCard active"
-all.innerText="All"
-all.onclick=()=>selectMonth("All",all)
-
-container.appendChild(all)
-
-months.forEach(m=>{
-
-let c=document.createElement("div")
-c.className="monthCard"
-c.innerText=m
-c.onclick=()=>selectMonth(m,c)
-
-container.appendChild(c)
-
-})
+buildCardGroup("monthCards",["All",...months],"month")
+buildCardGroup("categoryCards",["All",...new Set(rawData.map(r=>r["Outlet Category"]))],"category")
+buildCardGroup("tlCards",["All",...new Set(rawData.map(r=>r["TL Name"]))],"tl")
 
 }
 
-function selectMonth(m,el){
 
-activeMonth=m
+function buildCardGroup(container,items,type){
 
-document.querySelectorAll(".monthCard")
-.forEach(c=>c.classList.remove("active"))
+let div=document.getElementById(container)
 
-el.classList.add("active")
+items.forEach((item,i)=>{
+
+let c=document.createElement("div")
+
+c.className="cardBtn"+(i==0?" active":"")
+c.innerText=item
+
+c.onclick=()=>{
+
+document.querySelectorAll("#"+container+" .cardBtn")
+.forEach(x=>x.classList.remove("active"))
+
+c.classList.add("active")
+
+if(type=="month") activeMonth=item
+if(type=="category") activeCategory=item
+if(type=="tl") activeTL=item
 
 render()
 
 }
 
-function setPerformance(type,el){
+div.appendChild(c)
 
-performanceMode=type
-
-document.querySelectorAll(".toggleBtn")
-.forEach(b=>b.classList.remove("active"))
-
-el.classList.add("active")
-
-renderTop()
+})
 
 }
+
 
 function getFilteredData(){
 
@@ -281,23 +296,26 @@ return rawData.filter(r=>{
 
 let name=(r["Emp Name"]||"").toLowerCase()
 let id=(r["Emp ID"]||"").toString().toLowerCase()
-let storeName=(r["Store Name"]||"")
 
 return(
-(name.includes(search) || id.includes(search)) &&
-(store=="" || storeName==store)
+(name.includes(search)||id.includes(search)) &&
+(store==""||r["Store Name"]==store) &&
+(activeCategory=="All"||r["Outlet Category"]==activeCategory) &&
+(activeTL=="All"||r["TL Name"]==activeTL)
 )
 
 })
 
 }
 
+
 function render(){
 
 renderTable()
-renderTop()
+renderLeaderboards()
 
 }
+
 
 function getValue(r,m,type){
 
@@ -305,6 +323,7 @@ if(type=="qty") return Number(r[m+" Qty"]||0)
 return Number(r[m+" Value"]||0)
 
 }
+
 
 function renderTable(){
 
@@ -318,21 +337,15 @@ header.innerHTML=""
 subtotal.innerHTML=""
 tbody.innerHTML=""
 
-header.innerHTML="<th>Rank</th><th>Emp ID</th><th>Name</th><th>Store</th>"
-subtotal.innerHTML="<th></th><th></th><th></th><th>Subtotal</th>"
+header.innerHTML="<th>Rank</th><th>Emp ID</th><th>Name</th><th>Store</th><th>Outlet</th><th>TL</th>"
+subtotal.innerHTML="<th></th><th></th><th></th><th></th><th></th><th>Subtotal</th>"
 
 let showMonths=activeMonth=="All"?months:[activeMonth]
 
-showMonths.forEach(m=>{
-header.innerHTML+=`<th>${m} Qty</th>`
-})
+showMonths.forEach(m=>header.innerHTML+=`<th>${m} Qty</th>`)
+showMonths.forEach(m=>header.innerHTML+=`<th>${m} Value</th>`)
 
-showMonths.forEach(m=>{
-header.innerHTML+=`<th>${m} Value</th>`
-})
-
-let totalsQty={}
-let totalsVal={}
+let totalsQty={},totalsVal={}
 
 showMonths.forEach(m=>{
 totalsQty[m]=0
@@ -344,15 +357,12 @@ let employees=data.map(r=>{
 let val=0
 
 if(activeMonth=="All"){
-months.forEach(m=>val+=Number(r[m+" Value"]||0))
+months.forEach(m=>val+=getValue(r,m,"val"))
 }else{
-val=Number(r[activeMonth+" Value"]||0)
+val=getValue(r,activeMonth,"val")
 }
 
-return{
-data:r,
-value:val
-}
+return{data:r,value:val}
 
 })
 
@@ -361,130 +371,163 @@ employees.sort((a,b)=>b.value-a.value)
 employees.forEach((e,i)=>{
 
 let r=e.data
+
 let tr=document.createElement("tr")
 
-tr.innerHTML=`<td>${i+1}</td>
+tr.innerHTML=`
+<td>${i+1}</td>
 <td>${r["Emp ID"]}</td>
 <td>${r["Emp Name"]}</td>
-<td>${r["Store Name"]}</td>`
+<td>${r["Store Name"]}</td>
+<td>${r["Outlet Category"]}</td>
+<td>${r["TL Name"]}</td>
+`
 
 showMonths.forEach(m=>{
-
 let q=getValue(r,m,"qty")
 totalsQty[m]+=q
-
-let cls=q>20?"green":q>10?"yellow":"red"
-
-tr.innerHTML+=`<td class="${cls}">${q}</td>`
-
+tr.innerHTML+=`<td>${q}</td>`
 })
 
 showMonths.forEach(m=>{
-
 let v=getValue(r,m,"val")
 totalsVal[m]+=v
-
 tr.innerHTML+=`<td>₹${v} L</td>`
-
 })
 
 tbody.appendChild(tr)
 
 })
 
-showMonths.forEach(m=>{
-subtotal.innerHTML+=`<td class="subtotal">${totalsQty[m]}</td>`
-})
-
-showMonths.forEach(m=>{
-subtotal.innerHTML+=`<td class="subtotal">₹${totalsVal[m]} L</td>`
-})
+showMonths.forEach(m=>subtotal.innerHTML+=`<td>${totalsQty[m]}</td>`)
+showMonths.forEach(m=>subtotal.innerHTML+=`<td>₹${totalsVal[m]} L</td>`)
 
 }
 
-function renderTop(){
+
+function renderLeaderboards(){
 
 let data=getFilteredData()
 
-let arr=data.map(r=>{
+let qty={},val={},cat={},tl={}
 
-let qty=0
-let val=0
+data.forEach(r=>{
+
+let q=0,v=0
 
 if(activeMonth=="All"){
+months.forEach(m=>{
+q+=getValue(r,m,"qty")
+v+=getValue(r,m,"val")
+})
+}else{
+q=getValue(r,activeMonth,"qty")
+v=getValue(r,activeMonth,"val")
+}
+
+let name=r["Emp Name"]+" ("+r["Emp ID"]+")"
+
+qty[name]=(qty[name]||0)+q
+val[name]=(val[name]||0)+v
+cat[r["Outlet Category"]]=(cat[r["Outlet Category"]]||0)+v
+tl[r["TL Name"]]=(tl[r["TL Name"]]||0)+v
+
+})
+
+buildList("topQty",qty)
+buildList("topValue",val,true)
+buildList("catBoard",cat,true)
+buildTLList(tl)
+
+}
+
+
+function buildList(id,obj,money=false){
+
+let arr=Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5)
+
+let el=document.getElementById(id)
+el.innerHTML=""
+
+arr.forEach(x=>{
+el.innerHTML+=`<li>${x[0]} - ${money?"₹"+x[1]+" L":x[1]}</li>`
+})
+
+}
+
+
+function buildTLList(obj){
+
+let arr=Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5)
+
+let el=document.getElementById("tlBoard")
+el.innerHTML=""
+
+arr.forEach(x=>{
+
+let li=document.createElement("li")
+li.innerText=x[0]+" - ₹"+x[1]+" L"
+
+li.onclick=()=>openDrilldown(x[0])
+
+el.appendChild(li)
+
+})
+
+}
+
+
+function openDrilldown(tl){
+
+let data=getFilteredData().filter(r=>r["TL Name"]==tl)
+
+document.getElementById("drilldownBox").style.display="block"
+
+document.getElementById("drilldownTitle").innerText="Employees under TL: "+tl
+
+let head=document.getElementById("drillHead")
+let body=document.getElementById("drillBody")
+
+head.innerHTML="<tr><th>Rank</th><th>Emp</th><th>Store</th><th>Outlet</th><th>Total Value</th></tr>"
+body.innerHTML=""
+
+let arr=data.map(r=>{
+
+let total=0
 
 months.forEach(m=>{
-qty+=Number(r[m+" Qty"]||0)
-val+=Number(r[m+" Value"]||0)
+total+=getValue(r,m,"val")
 })
-
-}else{
-
-qty=Number(r[activeMonth+" Qty"]||0)
-val=Number(r[activeMonth+" Value"]||0)
-
-}
 
 return{
-name:r["Emp Name"]+" ("+r["Emp ID"]+")",
+name:r["Emp Name"],
 store:r["Store Name"],
-qty:qty,
-val:val
+outlet:r["Outlet Category"],
+val:total
 }
 
 })
 
-let qtySort=[...arr].sort((a,b)=>b.qty-a.qty)
-let valSort=[...arr].sort((a,b)=>b.val-a.val)
+arr.sort((a,b)=>b.val-a.val)
 
-if(performanceMode=="low"){
-qtySort.reverse()
-valSort.reverse()
-}
-
-let qtyList=document.getElementById("topQty")
-let valList=document.getElementById("topValue")
-
-qtyList.innerHTML=""
-valList.innerHTML=""
-
-qtySort.slice(0,5).forEach(e=>{
-qtyList.innerHTML+=`<li>${e.name} - ${e.qty}</li>`
+arr.forEach((e,i)=>{
+body.innerHTML+=`
+<tr>
+<td>${i+1}</td>
+<td>${e.name}</td>
+<td>${e.store}</td>
+<td>${e.outlet}</td>
+<td>₹${e.val} L</td>
+</tr>
+`
 })
-
-valSort.slice(0,5).forEach(e=>{
-valList.innerHTML+=`<li>${e.name} - ₹${e.val} L</li>`
-})
-
-buildStoreBoard(arr)
 
 }
 
-function buildStoreBoard(arr){
 
-let storeTotals={}
+function closeDrilldown(){
 
-arr.forEach(e=>{
-
-if(!storeTotals[e.store]) storeTotals[e.store]=0
-storeTotals[e.store]+=e.val
-
-})
-
-let stores=Object.keys(storeTotals).map(s=>{
-return{store:s,val:storeTotals[s]}
-})
-
-stores.sort((a,b)=>b.val-a.val)
-
-if(performanceMode=="low") stores.reverse()
-
-let board=document.getElementById("storeBoard")
-board.innerHTML=""
-
-stores.slice(0,5).forEach(s=>{
-board.innerHTML+=`<li>${s.store} - ₹${s.val} L</li>`
-})
+document.getElementById("drilldownBox").style.display="none"
 
 }
 
