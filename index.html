@@ -2,16 +2,15 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Employee Sales Dashboard</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Employee Sales Dashboard</title>
 
 <style>
 
 body{
 font-family:Arial;
 background:#f4f6fb;
-margin:10px;
+margin:15px;
 }
 
 h2{
@@ -27,8 +26,42 @@ margin-bottom:15px;
 
 input,select{
 padding:8px;
-border:1px solid #ccc;
 border-radius:6px;
+border:1px solid #ccc;
+}
+
+.monthCards{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+margin-bottom:15px;
+}
+
+.monthCard{
+padding:8px 14px;
+background:white;
+border-radius:8px;
+border:1px solid #ddd;
+cursor:pointer;
+}
+
+.monthCard.active{
+background:#1f4e79;
+color:white;
+}
+
+.topBox{
+display:flex;
+gap:20px;
+margin-bottom:15px;
+flex-wrap:wrap;
+}
+
+.card{
+background:white;
+padding:12px;
+border-radius:8px;
+border:1px solid #ddd;
 }
 
 table{
@@ -40,8 +73,8 @@ background:white;
 th,td{
 padding:8px;
 border:1px solid #ddd;
-font-size:13px;
 text-align:center;
+font-size:13px;
 }
 
 th{
@@ -49,30 +82,13 @@ background:#1f4e79;
 color:white;
 }
 
-.positive{
-color:green;
+.totals{
+margin-bottom:10px;
 font-weight:bold;
-}
-
-.negative{
-color:red;
-font-weight:bold;
-}
-
-.leaderboard{
-background:white;
-padding:10px;
-margin-top:20px;
-}
-
-.card{
-background:white;
-padding:10px;
-margin-top:15px;
-border-radius:8px;
 }
 
 </style>
+
 </head>
 
 <body>
@@ -85,14 +101,27 @@ border-radius:8px;
 <option value="">All Stores</option>
 </select>
 
-<input type="text" id="searchEmp" placeholder="Search Employee">
+<input type="text" id="searchEmp" placeholder="Search Emp Name or ID">
 
+</div>
+
+<div class="monthCards" id="monthCards"></div>
+
+<div class="topBox">
+
+<div class="card">
+<b>🏆 Top Qty Seller</b>
+<div id="topQty"></div>
 </div>
 
 <div class="card">
-<b>Total Store Performance</b>
-<div id="storeTotal"></div>
+<b>💰 Top Value Seller</b>
+<div id="topValue"></div>
 </div>
+
+</div>
+
+<div class="totals" id="totals"></div>
 
 <table id="salesTable">
 
@@ -104,20 +133,6 @@ border-radius:8px;
 
 </table>
 
-<div class="leaderboard">
-
-<h3>🏆 Top Performers</h3>
-<ul id="leaderboard"></ul>
-
-</div>
-
-<div class="card">
-
-<h3>Sales Chart</h3>
-<canvas id="salesChart"></canvas>
-
-</div>
-
 <script>
 
 const sheetID="1SF8KI__r5-6pq2pFxAjpkQxr7jNDvOxn2tXhAejSqGo";
@@ -127,6 +142,7 @@ const url=`https://opensheet.elk.sh/${sheetID}/${sheetName}`;
 
 let rawData=[];
 let months=[];
+let activeMonth="All";
 
 fetch(url)
 .then(r=>r.json())
@@ -138,11 +154,9 @@ detectMonths(data[0]);
 
 buildFilters();
 
+buildMonthCards();
+
 renderTable();
-
-buildLeaderboard();
-
-buildChart();
 
 });
 
@@ -150,9 +164,8 @@ function detectMonths(row){
 
 Object.keys(row).forEach(col=>{
 
-if(col.includes("Qty")){
+if(col.includes(" Qty")){
 months.push(col.replace(" Qty",""));
-
 }
 
 });
@@ -168,7 +181,6 @@ let select=document.getElementById("storeFilter");
 stores.forEach(s=>{
 
 let opt=document.createElement("option");
-
 opt.value=s;
 opt.textContent=s;
 
@@ -177,56 +189,94 @@ select.appendChild(opt);
 });
 
 select.onchange=renderTable;
-
 document.getElementById("searchEmp").oninput=renderTable;
+
+}
+
+function buildMonthCards(){
+
+let container=document.getElementById("monthCards");
+
+container.innerHTML="";
+
+let all=document.createElement("div");
+all.className="monthCard active";
+all.innerText="All";
+all.onclick=()=>selectMonth("All",all);
+
+container.appendChild(all);
+
+months.forEach(m=>{
+
+let card=document.createElement("div");
+
+card.className="monthCard";
+card.innerText=m;
+
+card.onclick=()=>selectMonth(m,card);
+
+container.appendChild(card);
+
+});
+
+}
+
+function selectMonth(month,el){
+
+activeMonth=month;
+
+document.querySelectorAll(".monthCard")
+.forEach(c=>c.classList.remove("active"));
+
+el.classList.add("active");
+
+renderTable();
 
 }
 
 function renderTable(){
 
 let store=document.getElementById("storeFilter").value.toLowerCase();
-
 let search=document.getElementById("searchEmp").value.toLowerCase();
 
 let header=document.getElementById("headerRow");
-
 let tbody=document.querySelector("#salesTable tbody");
 
 header.innerHTML="";
 tbody.innerHTML="";
 
-header.innerHTML+=`
+header.innerHTML=`
 <th>Emp ID</th>
 <th>Name</th>
 <th>Store</th>
 `;
 
-months.forEach(m=>{
+let showMonths = activeMonth=="All" ? months : [activeMonth];
 
+showMonths.forEach(m=>{
 header.innerHTML+=`<th>${m} Qty</th>`;
 });
 
-months.forEach(m=>{
-
+showMonths.forEach(m=>{
 header.innerHTML+=`<th>${m} Value</th>`;
 });
-
-for(let i=1;i<months.length;i++){
-
-header.innerHTML+=`<th>${months[i-1]}→${months[i]} Growth</th>`;
-
-}
 
 let filtered=rawData.filter(r=>{
 
 return(
 (!store || r["Store Name"].toLowerCase()==store) &&
-(!search || r["Emp Name"].toLowerCase().includes(search) || r["Emp ID"].includes(search))
+(!search || r["Emp Name"].toLowerCase().includes(search) || r["Emp ID"].toLowerCase().includes(search))
 );
 
 });
 
-let total=0;
+let totalsQty={};
+let totalsVal={};
+
+months.forEach(m=>{
+totalsQty[m]=0;
+totalsVal[m]=0;
+});
 
 filtered.forEach(r=>{
 
@@ -238,116 +288,76 @@ tr.innerHTML+=`
 <td>${r["Store Name"]}</td>
 `;
 
-months.forEach(m=>{
+showMonths.forEach(m=>{
 
-tr.innerHTML+=`<td>${r[m+" Qty"]||0}</td>`;
+let q=Number(r[m+" Qty"]||0);
+totalsQty[m]+=q;
+
+tr.innerHTML+=`<td>${q}</td>`;
 
 });
 
-months.forEach(m=>{
+showMonths.forEach(m=>{
 
 let v=Number(r[m+" Value"]||0);
-total+=v;
+totalsVal[m]+=v;
 
-tr.innerHTML+=`<td>${v}</td>`;
+tr.innerHTML+=`<td>₹${v.toLocaleString()}</td>`;
 
 });
-
-for(let i=1;i<months.length;i++){
-
-let prev=r[months[i-1]+" Value"]||0;
-let cur=r[months[i]+" Value"]||0;
-
-let g=prev?((cur-prev)/prev*100):0;
-
-let arrow=g>=0?"↑":"↓";
-
-let cls=g>=0?"positive":"negative";
-
-tr.innerHTML+=`<td class="${cls}">${arrow} ${g.toFixed(1)}%</td>`;
-
-}
 
 tbody.appendChild(tr);
 
 });
 
-document.getElementById("storeTotal").innerHTML=
-"₹ "+total.toLocaleString();
+buildTotals(totalsQty,totalsVal);
+
+buildTopPerformers(filtered);
 
 }
 
-function buildLeaderboard(){
+function buildTotals(q,v){
 
-let arr=rawData.map(r=>{
-
-let total=0;
+let text="";
 
 months.forEach(m=>{
-total+=Number(r[m+" Value"]||0);
+text+=`${m} Qty: ${q[m]} | ${m} Value: ₹${v[m].toLocaleString()} &nbsp;&nbsp;`;
 });
 
-return{
-name:r["Emp Name"],
-id:r["Emp ID"],
-value:total
-};
-
-});
-
-arr.sort((a,b)=>b.value-a.value);
-
-let list=document.getElementById("leaderboard");
-
-arr.slice(0,5).forEach(p=>{
-
-let li=document.createElement("li");
-
-li.textContent=`${p.name} (${p.id}) - ₹${p.value.toLocaleString()}`;
-
-list.appendChild(li);
-
-});
+document.getElementById("totals").innerHTML=text;
 
 }
 
-function buildChart(){
+function buildTopPerformers(data){
 
-let totals={};
+let topQty={name:"",value:0};
+let topVal={name:"",value:0};
 
-months.forEach(m=>totals[m]=0);
+data.forEach(r=>{
 
-rawData.forEach(r=>{
+let qty=0;
+let val=0;
 
 months.forEach(m=>{
-
-totals[m]+=Number(r[m+" Value"]||0);
-
+qty+=Number(r[m+" Qty"]||0);
+val+=Number(r[m+" Value"]||0);
 });
 
-});
+if(qty>topQty.value){
+topQty={name:r["Emp Name"]+" ("+r["Emp ID"]+")",value:qty};
+}
 
-new Chart(document.getElementById("salesChart"),{
-
-type:"line",
-
-data:{
-
-labels:Object.keys(totals),
-
-datasets:[{
-
-label:"Sales Value",
-
-data:Object.values(totals),
-
-borderWidth:3
-
-}]
-
+if(val>topVal.value){
+topVal={name:r["Emp Name"]+" ("+r["Emp ID"]+")",value:val};
 }
 
 });
+
+document.getElementById("topQty").innerHTML=
+`${topQty.name}<br>Qty: ${topQty.value}`;
+
+document.getElementById("topValue").innerHTML=
+`${topVal.name}<br>₹${topVal.value.toLocaleString()}`;
 
 }
 
